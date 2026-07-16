@@ -3,9 +3,8 @@ from pages.recovery_page import RecoveryPage
 from pages.login_page import LoginPage
 from playwright.sync_api import expect
 
-# ----------------------------------------------------------------------
 # Позитивные тесты
-# ----------------------------------------------------------------------
+
 
 def test_tc_2_1_request_reset_valid_email(page, test_user):
     """
@@ -34,9 +33,7 @@ def test_tc_2_4_return_to_login(page):
     expect(page.get_by_role("textbox", name="Электронная почта")).to_be_visible()
 
 
-# ----------------------------------------------------------------------
 # Негативные тесты
-# ----------------------------------------------------------------------
 
 def test_tc_2_6_request_reset_empty_email(page):
     """
@@ -51,9 +48,8 @@ def test_tc_2_6_request_reset_empty_email(page):
     recovery_page.check_empty_field_error()
 
 
-# ----------------------------------------------------------------------
 # Пропущенные тесты (требуют перехода по ссылке из письма)
-# ----------------------------------------------------------------------
+
 
 @pytest.mark.skip(reason="Для выполнения требуется перейти по ссылке из письма (недоступно в автотестах)")
 def test_tc_2_2_reset_with_valid_password(page):

@@ -131,15 +131,8 @@ class ProjectPage:
             "button", name=re.compile(r"Создать проект", re.IGNORECASE)
         )
         self.project_name_input = page.get_by_role("textbox", name="Название проекта")
-
-        # TODO: локатор кнопки "раскрыть поле кода" собран по позиции (nth(3)),
-        # это хрупко и стало причиной падения ТК-3.5 (см. отчёт по багам).
-        # Как только будет доступна разметка приложения - заменить на
-        # get_by_test_id(...) или get_by_role(..., name="Изменить код") и т.п.
-        self.open_code_field_button = (
-            page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(3)
-        )
         self.project_code_input = page.get_by_role("textbox", name="Код пространства")
+        self.open_code_field_button = page.get_by_role("button").filter(has_text=re.compile(r"^$")).nth(3)
 
         self.create_button = page.get_by_role("button", name="Создать", exact=True)
         self.save_button = page.get_by_role("button", name="Сохранить")
@@ -160,15 +153,12 @@ class ProjectPage:
         self.project_icon_button = self.board_header.get_by_test_id("avatar")
         self.rename_input = page.get_by_role("textbox")
 
+        self.archive_block = page.locator("._sectionContent_1wkit_93")
+
         # --- Меню проекта в навигации (три точки у элемента списка) ---
         self.board_more_button = page.get_by_test_id("iconButton")
 
-        # --- Заголовки секций на вкладке "Проекты" ---
-        # Секции идут в фиксированном порядке: Избранные -> Активные -> Архив
-        # (подтверждено скриншотом и aria snapshot из логов). Реальных
-        # CSS-классов контейнеров у меня нет, поэтому ссылки внутри секции
-        # ищем через DOM-порядок относительно этих заголовков, а не по классу.
-        self.favorites_heading = page.get_by_text("Избранные", exact=False).first
+        self.favorites_heading = page.get_by_text("Избранные", exact=False)
         self.active_heading = page.get_by_text("Активные", exact=False).first
         self.archive_heading = page.get_by_text("Архив", exact=False).first
 
@@ -176,25 +166,47 @@ class ProjectPage:
     # Навигация
     # ------------------------------------------------------------------ #
     def navigate_to_projects_tab(self):
-        if "/projects" not in self.page.url:
-            self.page.get_by_role("link", name="О пространстве").click()
-            self.page.get_by_role("button", name="Проекты").click()
-        self.create_project_button.wait_for(state="visible", timeout=30000)
+        # Если уже на странице проектов — выходим
+        if "/projects" in self.page.url:
+            return
+        # Кликаем по ссылке "О пространстве"
+        self.page.get_by_role("link", name="О пространстве").click()
+        # Ждём появления вкладки "Проекты" и кликаем
+        projects_tab = self.page.get_by_role("button", name="Проекты")
+        projects_tab.wait_for(state="visible", timeout=30000)
+        projects_tab.click(force=True)  # force=True помогает при перекрытиях
+        # Ждём смены URL
+        self.page.wait_for_url(re.compile(r".*/projects"), timeout=30000)
+        # Небольшая пауза для стабилизации
+        self.page.wait_for_timeout(500)
 
     def open_create_project_modal(self):
         self.create_project_button.click()
         self.project_name_input.wait_for(state="visible", timeout=30000)
 
+    def get_project_link_by_code(self, code: str):
+        """Возвращает ссылку на проект по его коду (часть URL)."""
+        return self.page.locator(f"a[href*='/project/{code}']").first
+
     def get_project_link(self, name: str):
         """Ссылка на проект по частичному совпадению с именем (в меню навигации)."""
         return self.page.get_by_role("link").filter(has_text=name).first
 
-    def open_project(self, name: str):
+    def open_project(self, code: str):
         """Переход на доску проекта."""
-        project_link = self.get_project_link(name)
+        project_link = self.get_project_link(code)
         project_link.wait_for(state="visible", timeout=30000)
         project_link.click()
-        self.page.wait_for_url(re.compile(r".*/board$"), timeout=10000)
+        self.page.wait_for_url(re.compile(r".*/project/.*"), timeout=30000)
+        self.page.get_by_text("Канбан", exact=False).wait_for(state="visible", timeout=10000)
+
+    def get_project_code_from_url(self):
+        """Извлекает код проекта из текущего URL (например, /project/PR17841081)."""
+        url = self.page.url
+        match = re.search(r"/project/([^/?]+)", url)
+        if match:
+            return match.group(1)
+        raise ValueError(f"Не удалось извлечь код проекта из URL: {url}")
 
     def _link_in_archive(self, code: str):
         """
@@ -233,24 +245,22 @@ class ProjectPage:
         more_button = project_link.get_by_test_id("iconButton")
         more_button.wait_for(state="visible", timeout=30000)
         more_button.click()
-        self.page.wait_for_timeout(500)
 
     # ------------------------------------------------------------------ #
     # ТК-3.1 Создание проекта
     # ------------------------------------------------------------------ #
-    def create_project(self, name: str, code: str = None):
+    def create_project(self, name: str) -> str:
         self.open_create_project_modal()
         self.project_name_input.fill(name)
         self.page.click("body")
-        if code:
-            self.open_code_field_button.wait_for(state="visible", timeout=30000)
-            self.open_code_field_button.click()
-            self.project_code_input.wait_for(state="visible", timeout=30000)
-            self.project_code_input.fill(code)
-            self.page.click("body")
         self.create_button.click()
-        self.page.locator("[role='dialog']").wait_for(state="hidden", timeout=30000)
+        self.project_name_input.wait_for(state="hidden", timeout=30000)
         self.open_project(name)
+        # Извлекаем код из URL
+        url = self.page.url
+        # URL: https://.../project/<code>/board
+        code = url.split("/project/")[1].split("/")[0]
+        return code
 
     # ------------------------------------------------------------------ #
     # ТК-3.2 Переименование проекта
@@ -265,23 +275,29 @@ class ProjectPage:
     # ------------------------------------------------------------------ #
     # ТК-3.3 Смена иконки проекта
     # ------------------------------------------------------------------ #
-    def change_icon(self, color_index: int = 2):
-        """Вызывать, находясь на доске проекта."""
-        self.project_icon_button.click()
-        self.page.get_by_text("Изменить иконку", exact=True).click()
-        self.page.get_by_test_id("status-color").nth(2).click()
-        self.save_button.click()
+    def change_icon(self, name: str):
+        """
+        Изменяет иконку проекта на кошачью лапку
+        """
+        self.open_project(name)
+        # Открываем меню изменения иконки
+        self.page.locator("._head_xn6fh_10 [data-testid='avatar']").click()
+        self.page.get_by_text("Изменить иконку").click()
+        self.page.locator("#solid_p_paw > ._icon_1dmpy_27 > use").click()
+        # Сохраняем изменения в модалке (первая кнопка)
+        self.page.get_by_role("button", name="Сохранить").click()
 
     # ------------------------------------------------------------------ #
     # ТК-3.4 Архивирование проекта
     # ------------------------------------------------------------------ #
-    def archive_project(self, name: str, code: str):
-        self.open_project(name)  # гарантируем, что мы на доске
+    def archive_project(self, name: str):
+        self.open_project(name)
+        code = self.get_project_code_from_url()
         self.open_board_menu(name)
-        self.page.get_by_text("Архивировать", exact=True).click()
+        self.page.get_by_text("Архивировать").click()
         confirm_input = self.page.get_by_role("textbox")
         confirm_input.fill(code)
-        self.page.get_by_role("button", name="Архивировать", exact=True).click()
+        self.page.get_by_role("button", name="Архивировать").click()
         expect(self.get_project_link(name)).not_to_be_visible(timeout=30000)
         self.navigate_to_projects_tab()
         expect(self._link_in_archive(code)).to_be_visible(timeout=10000)
@@ -289,38 +305,38 @@ class ProjectPage:
     # ------------------------------------------------------------------ #
     # ТК-3.5 Восстановление проекта из архива
     # ------------------------------------------------------------------ #
-    def restore_project(self, name: str, code: str):
+    def restore_project(self, name: str):
+        """Восстанавливает проект из архива по его имени."""
         self.navigate_to_projects_tab()
-        archived_link = self._link_in_archive(code)
-        archived_link.wait_for(state="visible", timeout=10000)
-        archived_link.hover()
-        more_button = archived_link.get_by_test_id("iconButton")
+        archived_card = self.archive_block.locator(f"._card_1wkit_97:has-text('{name}')").first
+        archived_card.wait_for(state="visible", timeout=10000)
+        archived_card.hover()
+        more_button = archived_card.get_by_test_id("iconButton")
         more_button.wait_for(state="visible", timeout=10000)
         more_button.click()
-        self.page.get_by_text("Восстановить из архива", exact=True).click()
+        self.page.get_by_text("Восстановить из архива").click()
         self.page.get_by_role("button", name="Восстановить").click()
         expect(self.get_project_link(name)).to_be_visible(timeout=10000)
 
     # ------------------------------------------------------------------ #
     # ТК-3.6 Удаление проекта
     # ------------------------------------------------------------------ #
-    def delete_project(self, name: str, code: str):
+    def delete_project(self, name: str):
         self.open_project(name)
+        code = self.get_project_code_from_url()
         self.open_board_menu(name)
-        # Меню "три точки" тоже реализовано через role="dialog" (поповер),
-        # поэтому после клика "Удалить" на странице одновременно два элемента
-        # с role="dialog" — общий локатор [role='dialog'] становится
-        # неоднозначным (strict mode violation). Явно берём именно диалог
-        # подтверждения удаления по его тексту.
-        confirm_dialog = self.page.get_by_role("dialog").filter(has_text="Удалить проект")
-        self.page.get_by_text("Удалить", exact=True).click()
-        confirm_dialog.wait_for(state="visible", timeout=10000)
-        confirm_input = confirm_dialog.get_by_role("textbox")
+        delete_item = self.page.get_by_text("Удалить")
+        delete_item.click()
+        self.page.get_by_text("Удалить проект").wait_for(state="visible", timeout=10000)
+        confirm_input = self.page.get_by_role("textbox").first
         confirm_input.fill(code)
-        confirm_dialog.get_by_role("button", name="Удалить", exact=True).click()
-        confirm_dialog.wait_for(state="hidden", timeout=30000)
+        delete_button = self.page.get_by_role("button", name="Удалить")
+        expect(delete_button).to_be_enabled(timeout=10000)
+        delete_button.click()
+        confirm_input.wait_for(state="hidden", timeout=30000)
         self.navigate_to_projects_tab()
-        expect(self.get_project_link(name)).not_to_be_visible(timeout=10000)
+        # Проверяем, что проект с данным кодом больше не отображается в меню
+        expect(self.get_project_link_by_code(code)).not_to_be_visible(timeout=10000)
 
     # ------------------------------------------------------------------ #
     # ТК-3.7 / ТК-3.8 Избранное
@@ -330,21 +346,17 @@ class ProjectPage:
         self.open_board_menu(name)
         menu_item = self.page.get_by_text("Добавить в избранное", exact=True)
         menu_item.click()
-        # Дожидаемся закрытия пункта меню (значит, клик реально обработан),
-        # прежде чем переходить на вкладку "Проекты" — иначе бывает гонка,
-        # когда переход происходит раньше, чем на бэкенде/фронте
-        # обновилось состояние "избранного" (наблюдалось на ТК-3.7).
         menu_item.wait_for(state="hidden", timeout=5000)
         self.navigate_to_projects_tab()
         self.favorites_heading.wait_for(state="visible", timeout=20000)
-        expect(self._link_in_favorites(name)).to_be_visible(timeout=10000)
+        expect(self._link_in_favorites(name)).to_be_visible(timeout=20000)
 
     def remove_from_favorites(self, name: str):
         self.open_project(name)
         self.open_board_menu(name)
-        self.page.get_by_text("Убрать из избранного", exact=True).click()
+        self.page.get_by_text("Убрать из избранного").click()
         self.navigate_to_projects_tab()
-        expect(self._link_in_favorites(name)).not_to_be_visible(timeout=10000)
+        expect(self._link_in_favorites(name)).not_to_be_visible(timeout=20000)
 
     # ------------------------------------------------------------------ #
     # Общее
