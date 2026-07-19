@@ -119,14 +119,14 @@ def test_tc_4_6_change_password_success(page, login_and_open_profile, test_user)
 def test_tc_4_7_set_absence_period(page, login_and_open_profile):
     """ТК-4.7 Установка периода отсутствия."""
     profile_page = login_and_open_profile
-    profile_page.set_absence("1", "16")
+    profile_page.set_absence("1", "31")
     expect(page.get_by_text("Недоступен", exact=False)).to_be_visible(timeout=10000)
 
 
 def test_tc_4_8_remove_absence_period(page, login_and_open_profile):
     """ТК-4.8 Удаление периода отсутствия."""
     profile_page = login_and_open_profile
-    profile_page.set_absence("1", "16")
+    profile_page.set_absence("1", "31")
     profile_page.remove_absence()
     expect(page.get_by_text("Доступен", exact=False)).to_be_visible(timeout=10000)
 

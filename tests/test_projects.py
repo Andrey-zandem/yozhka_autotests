@@ -1,109 +1,3 @@
-# import pytest
-# from pages.login_page import LoginPage
-# from pages.project_page import ProjectPage
-# from playwright.sync_api import expect
-# from conftest import unique_name, unique_code
-
-# @pytest.fixture(autouse=True)
-# def login_and_navigate(page, test_user):
-#     login_page = LoginPage(page)
-#     login_page.navigate()
-#     login_page.login(test_user["email"], test_user["password"])
-#     page.get_by_role("link", name=test_user["full_name"]).wait_for(state="visible", timeout=30000)
-#     project_page = ProjectPage(page)
-#     project_page.navigate_to_projects_tab()
-#     return project_page
-
-# def test_tc_3_1_create_project_success(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     project_page.create_project(name)
-#     expect(project_page.get_project_link(name)).to_be_visible()
-
-# @pytest.mark.skip(reason="Требует доработки")
-# def test_tc_3_2_rename_project(page, login_and_navigate):
-#     pass
-
-# @pytest.mark.skip(reason="Требует доработки")
-# def test_tc_3_3_change_icon(page, login_and_navigate):
-#     pass
-
-# def test_tc_3_4_archive_project(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     code = unique_code()
-#     project_page.create_project(name, code)
-#     project_page.archive_project(name, code)
-
-# def test_tc_3_5_restore_project(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     code = unique_code()
-#     project_page.create_project(name, code)
-#     project_page.archive_project(name, code)
-#     project_page.restore_project(name)
-
-# def test_tc_3_6_delete_project(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     code = unique_code()
-#     project_page.create_project(name, code)
-#     project_page.delete_project(name, code)
-
-# def test_tc_3_7_add_to_favorites(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     project_page.create_project(name)
-#     project_page.add_to_favorites(name)
-
-# def test_tc_3_8_remove_from_favorites(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     project_page.create_project(name)
-#     project_page.add_to_favorites(name)
-#     project_page.remove_from_favorites(name)
-
-# def test_tc_3_9_create_project_empty_name(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     project_page.open_create_project_modal()
-#     project_page.project_name_input.fill("")
-#     expect(project_page.create_button).to_be_disabled()
-
-# def test_tc_3_10_create_project_invalid_code(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     project_page.open_create_project_modal()
-#     project_page.project_name_input.fill("Тест")
-#     project_page.page.click("body")
-#     project_page.open_code_field_button.click()
-#     project_page.project_code_input.wait_for(state="visible", timeout=30000)
-#     project_page.project_code_input.fill("T P")
-#     project_page.create_button.click()
-#     error = page.get_by_text("Латинские буквы и цифры без пробелов")
-#     expect(error).to_be_visible()
-
-# def test_tc_3_13_archive_with_wrong_code(page, login_and_navigate):
-#     project_page = login_and_navigate
-#     name = unique_name()
-#     code = unique_code()
-#     project_page.create_project(name, code)
-#     project_page.open_project(name)  # переход на доску
-#     project_page.open_board_menu(name)
-#     project_page.page.get_by_text("Архивировать", exact=True).click()
-#     confirm_input = project_page.page.get_by_role("textbox")
-#     confirm_input.fill("WRONG")
-#     expect(project_page.page.get_by_role("button", name="Архивировать")).to_be_disabled()
-
-# @pytest.mark.skip(reason="Требуется аккаунт с ролью 'Участник'")
-# def test_tc_3_11_create_project_as_member(page, test_user):
-#     pass
-
-# @pytest.mark.skip(reason="Требуется аккаунт с ролью 'Участник'")
-# def test_tc_3_12_delete_project_as_member(page, test_user):
-#     pass
-
-
-
-
 import pytest
 import os
 from pages.login_page import LoginPage
@@ -122,10 +16,7 @@ def login_and_navigate(page, test_user):
     project_page.navigate_to_projects_tab()
     return project_page
 
-
-# ---------------------------------------------------------------------- #
 # Положительные ТК
-# ---------------------------------------------------------------------- #
 
 def test_tc_3_1_create_project_success(page, login_and_navigate):
     """ТК-3.1 Создание проекта с корректными данными."""
@@ -133,6 +24,7 @@ def test_tc_3_1_create_project_success(page, login_and_navigate):
     name = unique_name()
     project_page.create_project(name)
     expect(project_page.get_project_link(name)).to_be_visible()
+    project_page.delete_project(name)
 
 
 def test_tc_3_2_rename_project(page, login_and_navigate):
@@ -145,7 +37,7 @@ def test_tc_3_2_rename_project(page, login_and_navigate):
     # название должно обновиться и в меню навигации, и на доске
     expect(project_page.get_project_link(new_name)).to_be_visible(timeout=10000)
     expect(project_page.get_project_link(name)).not_to_be_visible()
-
+    project_page.delete_project(new_name)
 
 def test_tc_3_3_change_icon(page, login_and_navigate):
     """ТК-3.3 Изменение иконки проекта."""
@@ -165,6 +57,8 @@ def test_tc_3_4_archive_project(page, login_and_navigate):
     name = unique_name()
     project_page.create_project(name)
     project_page.archive_project(name)
+    project_page.restore_project(name)
+    project_page.delete_project(name)
 
 
 def test_tc_3_5_restore_project(page, login_and_navigate):
@@ -174,6 +68,7 @@ def test_tc_3_5_restore_project(page, login_and_navigate):
     project_page.create_project(name)
     project_page.archive_project(name)
     project_page.restore_project(name)
+    project_page.delete_project(name)
 
 
 def test_tc_3_6_delete_project(page, login_and_navigate):
@@ -190,6 +85,7 @@ def test_tc_3_7_add_to_favorites(page, login_and_navigate):
     name = unique_name()
     project_page.create_project(name)
     project_page.add_to_favorites(name)
+    project_page.delete_project(name)
 
 
 def test_tc_3_8_remove_from_favorites(page, login_and_navigate):
@@ -199,6 +95,7 @@ def test_tc_3_8_remove_from_favorites(page, login_and_navigate):
     project_page.create_project(name)
     project_page.add_to_favorites(name)
     project_page.remove_from_favorites(name)
+    project_page.delete_project(name)
 
 
 # Отрицательные ТК
@@ -233,7 +130,7 @@ def test_tc_3_11_create_project_as_member(page, disposable_user):
     expect(project_page.create_project_button).not_to_be_visible()
 
 
-# для этого теста нужен заранее созданный проект с именем ТЕСТ
+# для этого теста нужен заранее созданный проект с именем Тест
 def test_tc_3_12_delete_project_as_member(page, disposable_user, test_user):
     """ТК-3.12 Попытка удалить проект участником."""
     login_page = LoginPage(page)
@@ -241,7 +138,7 @@ def test_tc_3_12_delete_project_as_member(page, disposable_user, test_user):
     login_page.login(disposable_user["email"], disposable_user["password"])
     project_page = ProjectPage(page)
     project_page.navigate_to_projects_tab()
-    name = "ТЕСТ"
+    name = "Тест"
     project_page.get_project_link(name).hover()
     more_button = project_page.get_project_link(name).get_by_test_id("iconButton")
     more_button.click()

@@ -16,7 +16,7 @@ class LoginPage:
             "https://yozhka.lukit.ru/sign-in"
         )
         # Ожидаем загрузки формы
-        self.login_button.wait_for(state="visible", timeout=30000)
+        self.login_button.wait_for(state="visible", timeout=40000)
 
     def login(self, username: str, password: str):
         """Выполняет вход с указанными данными"""

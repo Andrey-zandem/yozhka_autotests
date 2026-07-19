@@ -18,11 +18,9 @@ class RecoveryPage:
 
     def navigate_to_recovery(self):
         """Переход на страницу восстановления через клик по ссылке"""
-        # Явно ждём появления ссылки с запасом времени
         forgot_link = self.page.get_by_role("button", name="Я забыл пароль")
         forgot_link.wait_for(state="visible", timeout=30000)
         forgot_link.click()
-        # Ждём загрузки страницы восстановления
         self.email_input.wait_for(state="visible", timeout=30000)
 
     def request_password_reset(self, email: str):

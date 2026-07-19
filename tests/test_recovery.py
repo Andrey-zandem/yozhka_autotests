@@ -5,7 +5,6 @@ from playwright.sync_api import expect
 
 # Позитивные тесты
 
-
 def test_tc_2_1_request_reset_valid_email(page, test_user):
     """
     ТК-2.1: Запрос на восстановление доступа с корректной почтой
